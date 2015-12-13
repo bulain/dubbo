@@ -33,7 +33,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.pool.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -85,24 +85,24 @@ public class RedisRegistry extends FailbackRegistry {
         if (url.isAnyHost()) {
     		throw new IllegalStateException("registry address == null");
     	}
-        GenericObjectPool.Config config = new GenericObjectPool.Config();
-        config.testOnBorrow = url.getParameter("test.on.borrow", true);
-        config.testOnReturn = url.getParameter("test.on.return", false);
-        config.testWhileIdle = url.getParameter("test.while.idle", false);
+        GenericObjectPoolConfig config = new GenericObjectPoolConfig();
+        config.setTestOnBorrow(url.getParameter("test.on.borrow", true));
+        config.setTestOnReturn(url.getParameter("test.on.return", false));
+        config.setTestWhileIdle(url.getParameter("test.while.idle", false));
         if (url.getParameter("max.idle", 0) > 0)
-            config.maxIdle = url.getParameter("max.idle", 0);
+            config.setMaxIdle(url.getParameter("max.idle", 0));
         if (url.getParameter("min.idle", 0) > 0)
-            config.minIdle = url.getParameter("min.idle", 0);
+            config.setMinIdle(url.getParameter("min.idle", 0));
         if (url.getParameter("max.active", 0) > 0)
-            config.maxActive = url.getParameter("max.active", 0);
+            config.setMaxTotal(url.getParameter("max.active", 0));
         if (url.getParameter("max.wait", url.getParameter("timeout", 0)) > 0)
-            config.maxWait = url.getParameter("max.wait", url.getParameter("timeout", 0));
+            config.setMaxWaitMillis(url.getParameter("max.wait", url.getParameter("timeout", 0)));
         if (url.getParameter("num.tests.per.eviction.run", 0) > 0)
-            config.numTestsPerEvictionRun = url.getParameter("num.tests.per.eviction.run", 0);
+            config.setNumTestsPerEvictionRun(url.getParameter("num.tests.per.eviction.run", 0));
         if (url.getParameter("time.between.eviction.runs.millis", 0) > 0)
-            config.timeBetweenEvictionRunsMillis = url.getParameter("time.between.eviction.runs.millis", 0);
+            config.setTimeBetweenEvictionRunsMillis(url.getParameter("time.between.eviction.runs.millis", 0));
         if (url.getParameter("min.evictable.idle.time.millis", 0) > 0)
-            config.minEvictableIdleTimeMillis = url.getParameter("min.evictable.idle.time.millis", 0);
+            config.setMinEvictableIdleTimeMillis(url.getParameter("min.evictable.idle.time.millis", 0));
         
         String cluster = url.getParameter("cluster", "failover");
         if (! "failover".equals(cluster) && ! "replicate".equals(cluster)) {
@@ -174,7 +174,7 @@ public class RedisRegistry extends FailbackRegistry {
                     	break;//  如果服务器端已同步数据，只需写入单台机器
                     }
                 } finally {
-                    jedisPool.returnResource(jedis);
+                    jedis.close();
                 }
             } catch (Throwable t) {
                 logger.warn("Failed to write provider heartbeat to redis registry. registry: " + entry.getKey() + ", cause: " + t.getMessage(), t);
@@ -221,7 +221,7 @@ public class RedisRegistry extends FailbackRegistry {
                         return true; // 至少需单台机器可用
                     }
                 } finally {
-                    jedisPool.returnResource(jedis);
+                    jedis.close();
                 }
             } catch (Throwable t) {
             }
@@ -273,7 +273,7 @@ public class RedisRegistry extends FailbackRegistry {
                     	break; //  如果服务器端已同步数据，只需写入单台机器
                     }
                 } finally {
-                    jedisPool.returnResource(jedis);
+                    jedis.close();
                 }
             } catch (Throwable t) {
                 exception = new RpcException("Failed to register service to redis registry. registry: " + entry.getKey() + ", service: " + url + ", cause: " + t.getMessage(), t);
@@ -306,7 +306,7 @@ public class RedisRegistry extends FailbackRegistry {
                     	break; //  如果服务器端已同步数据，只需写入单台机器
                     }
                 } finally {
-                    jedisPool.returnResource(jedis);
+                    jedis.close();
                 }
             } catch (Throwable t) {
                 exception = new RpcException("Failed to unregister service to redis registry. registry: " + entry.getKey() + ", service: " + url + ", cause: " + t.getMessage(), t);
@@ -364,7 +364,7 @@ public class RedisRegistry extends FailbackRegistry {
                     success = true;
                     break; // 只需读一个服务器的数据
                 } finally {
-                    jedisPool.returnResource(jedis);
+                    jedis.close();
                 }
             } catch(Throwable t) { // 尝试下一个服务器
                 exception = new RpcException("Failed to subscribe service from redis registry. registry: " + entry.getKey() + ", service: " + url + ", cause: " + t.getMessage(), t);
@@ -489,7 +489,7 @@ public class RedisRegistry extends FailbackRegistry {
                     try {
                         doNotify(jedis, key);
                     } finally {
-                        jedisPool.returnResource(jedis);
+                        jedis.close();
                     }
                 } catch (Throwable t) { // TODO 通知失败没有恢复机制保障
                     logger.error(t.getMessage(), t);
@@ -600,7 +600,7 @@ public class RedisRegistry extends FailbackRegistry {
                                         }
                                         break;
                                     } finally {
-                                        jedisPool.returnBrokenResource(jedis);
+                                        jedis.close();
                                     }
                                 } catch (Throwable t) { // 重试另一台
                                     logger.warn("Failed to subscribe service from redis registry. registry: " + entry.getKey() + ", cause: " + t.getMessage(), t);

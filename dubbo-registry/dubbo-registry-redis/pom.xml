@@ -39,5 +39,10 @@
 			<artifactId>jedis</artifactId>
 			<scope>provided</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+            <scope>provided</scope>
+        </dependency>
 	</dependencies>
 </project>
